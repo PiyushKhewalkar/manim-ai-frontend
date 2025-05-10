@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const BASE_URL = "http://localhost:5500"
+const BASE_URL = "https://manim-ai-backend.onrender.com"
 
 export const getAllScenes = async() => {
     try {

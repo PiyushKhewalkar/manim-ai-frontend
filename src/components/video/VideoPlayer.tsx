@@ -5,6 +5,8 @@ import { Play, FastForward, Rewind, Pause } from 'lucide-react';
 const VideoPlayer: React.FC = () => {
   const { currentVideo, isLoading } = useAnimation();
   const [isPlaying, setIsPlaying] = React.useState(false);
+  const [currentTime, setCurrentTime] = React.useState(0);
+  const [duration, setDuration] = React.useState(0);
   const videoRef = React.useRef<HTMLVideoElement>(null);
 
   const handlePlayPause = () => {
@@ -30,11 +32,60 @@ const VideoPlayer: React.FC = () => {
     }
   };
 
+  const handleTimeUpdate = () => {
+    if (videoRef.current) {
+      setCurrentTime(videoRef.current.currentTime);
+    }
+  };
+
+  const handleLoadedMetadata = () => {
+    if (videoRef.current) {
+      setDuration(videoRef.current.duration);
+    }
+  };
+
+  const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newTime = parseFloat(e.target.value);
+    if (videoRef.current) {
+      videoRef.current.currentTime = newTime;
+      setCurrentTime(newTime);
+    }
+  };
+
+  const formatTime = (time: number) => {
+    const minutes = Math.floor(time / 60);
+    const seconds = Math.floor(time % 60);
+    return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+  };
+
+  const handleDownload = () => {
+    if (!currentVideo) return;
+  
+    const link = document.createElement('a');
+    link.href = currentVideo;
+    link.setAttribute('download', 'manim-animation.mp4'); // you can customize the filename
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+  
+
   return (
     <div className="flex flex-col h-full p-6">
-      <div className="mb-4">
+      <div className='flex justify-between items-center mb-4'>
+      <div className="">
         <h2 className="text-xl font-medium">Manim Animation</h2>
         <p className="text-sm text-slate-400">Generated animation will appear here</p>
+      </div>
+      <div>
+      <button 
+  onClick={handleDownload}
+  className='px-4 py-2 text-white font-bold bg-blue-600 rounded-md'
+>
+  Export
+</button>
+
+      </div>
       </div>
 
       <div className="flex-grow flex items-center justify-center bg-slate-800 rounded-lg overflow-hidden relative md:min-h-[75vh]">
@@ -46,10 +97,12 @@ const VideoPlayer: React.FC = () => {
         ) : currentVideo ? (
           <video 
             ref={videoRef}
-            className="max-h-full max-w-full aspect-video" 
+            className="max-h-full max-w-full aspect-video scale-100 lg:scale-125" 
             src={currentVideo} 
             controls={false}
             onEnded={() => setIsPlaying(false)}
+            onTimeUpdate={handleTimeUpdate}
+            onLoadedMetadata={handleLoadedMetadata}
           />
         ) : (
           <div className="text-center p-6">
@@ -64,25 +117,39 @@ const VideoPlayer: React.FC = () => {
       </div>
 
       {currentVideo && (
-        <div className="mt-4 flex justify-center space-x-4">
-          <button 
-            onClick={handleRewind}
-            className="p-3 rounded-full bg-slate-700 hover:bg-slate-600 transition-colors"
-          >
-            <Rewind size={20} />
-          </button>
-          <button 
-            onClick={handlePlayPause}
-            className="p-3 rounded-full bg-purple-600 hover:bg-purple-700 transition-colors"
-          >
-            {isPlaying ? <Pause size={20} /> : <Play size={20} />}
-          </button>
-          <button 
-            onClick={handleFastForward}
-            className="p-3 rounded-full bg-slate-700 hover:bg-slate-600 transition-colors"
-          >
-            <FastForward size={20} />
-          </button>
+        <div className="mt-4 flex flex-col items-center space-y-2">
+          <input
+            type="range"
+            min="0"
+            max={duration}
+            value={currentTime}
+            onChange={handleSliderChange}
+            className="w-full"
+          />
+          <div className="flex justify-between w-full text-sm text-slate-400">
+            <span>{formatTime(currentTime)}</span>
+            <span>{formatTime(duration)}</span>
+          </div>
+          <div className="flex justify-center space-x-4">
+            <button 
+              onClick={handleRewind}
+              className="p-3 rounded-full bg-slate-700 hover:bg-slate-600 transition-colors"
+            >
+              <Rewind size={20} />
+            </button>
+            <button 
+              onClick={handlePlayPause}
+              className="p-3 rounded-full bg-purple-600 hover:bg-purple-700 transition-colors"
+            >
+              {isPlaying ? <Pause size={20} /> : <Play size={20} />}
+            </button>
+            <button 
+              onClick={handleFastForward}
+              className="p-3 rounded-full bg-slate-700 hover:bg-slate-600 transition-colors"
+            >
+              <FastForward size={20} />
+            </button>
+          </div>
         </div>
       )}
     </div>

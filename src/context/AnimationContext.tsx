@@ -51,12 +51,19 @@ export const AnimationProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       let aiResponse: Message;
       let video;
 
+
       if (!sceneId) {
         // First message – generate a new scene
         video = await generateScene(userMessage.content);
+
+        console.log("video", video)
+
+        let recentChat = video.newScene.chatHistory[video.newScene.chatHistory.length - 1]
+
+        console.log(video)
         aiResponse = {
           id: crypto.randomUUID(),
-          content: video.newScene.description,
+          content: recentChat.assistant,
           sender: 'ai',
           timestamp: new Date(),
         };
@@ -64,9 +71,13 @@ export const AnimationProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       } else {
         // Regenerate an existing scene
         video = await regenerateScene(sceneId, userMessage.content);
+
+        console.log("video", video)
+        
+        let recentChat = video.foundScene.chatHistory[video.foundScene.chatHistory.length - 1]
         aiResponse = {
           id: crypto.randomUUID(),
-          content: video.foundScene.description,
+          content: recentChat.assistant,
           sender: 'ai',
           timestamp: new Date(),
         };
