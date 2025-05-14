@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState } from 'react';
-import { generateScene, regenerateScene, launchVideo } from '../utils/api';
+import { generateScene, regenerateScene, launchVideo, produceVideo } from '../utils/api';
 
 interface Message {
   id: string;
@@ -24,6 +24,8 @@ interface AnimationContextType {
   sendMessage: (message: string) => Promise<void>;
   createNewVideo: (name: string) => Promise<void>;
   addNewScene: () => Promise<void>;
+  setCurrentSceneIndex: (index: number) => void;
+  exportFullVideo: () => Promise<string>;
 }
 
 const AnimationContext = createContext<AnimationContextType>({
@@ -36,6 +38,8 @@ const AnimationContext = createContext<AnimationContextType>({
   sendMessage: async () => {},
   createNewVideo: async () => {},
   addNewScene: async () => {},
+  setCurrentSceneIndex: () => {},
+  exportFullVideo: async () => '',
 });
 
 export const useAnimation = () => useContext(AnimationContext);
@@ -55,6 +59,7 @@ export const AnimationProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setScenes([]);
       setMessages([]);
       setCurrentVideo(null);
+      setCurrentSceneIndex(0);
     } catch (error) {
       console.error('Error creating video:', error);
     }
@@ -67,6 +72,21 @@ export const AnimationProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setCurrentVideo(null);
     const newIndex = scenes.length;
     setCurrentSceneIndex(newIndex);
+  };
+
+  const handleSetCurrentSceneIndex = (index: number) => {
+    if (index >= 0 && index < scenes.length) {
+      setCurrentSceneIndex(index);
+      setCurrentVideo(scenes[index].fileUrl);
+      setMessages([]); // Clear messages when switching scenes
+    }
+  };
+
+  const exportFullVideo = async (): Promise<string> => {
+    if (!videoId) throw new Error('No video ID available');
+    
+    const response = await produceVideo(videoId);
+    return response.video.videoUrl;
   };
 
   const sendMessage = async (content: string): Promise<void> => {
@@ -139,6 +159,8 @@ export const AnimationProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     sendMessage,
     createNewVideo,
     addNewScene,
+    setCurrentSceneIndex: handleSetCurrentSceneIndex,
+    exportFullVideo,
   };
 
   return (
