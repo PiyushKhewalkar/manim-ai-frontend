@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState } from 'react';
-import { generateScene, regenerateScene } from '../utils/api.js';
+import { generateScene, regenerateScene, launchVideo } from '../utils/api';
 
-// Message type definition
 interface Message {
   id: string;
   content: string;
@@ -9,33 +8,70 @@ interface Message {
   timestamp: Date;
 }
 
-// Context type definition
+interface Scene {
+  order: number;
+  sceneId: string;
+  fileUrl: string;
+}
+
 interface AnimationContextType {
   messages: Message[];
   currentVideo: string | null;
   isLoading: boolean;
+  videoId: string | null;
+  scenes: Scene[];
+  currentSceneIndex: number;
   sendMessage: (message: string) => Promise<void>;
+  createNewVideo: (name: string) => Promise<void>;
+  addNewScene: () => Promise<void>;
 }
 
-// Create context with default values
 const AnimationContext = createContext<AnimationContextType>({
   messages: [],
   currentVideo: null,
   isLoading: false,
+  videoId: null,
+  scenes: [],
+  currentSceneIndex: 0,
   sendMessage: async () => {},
+  createNewVideo: async () => {},
+  addNewScene: async () => {},
 });
 
-// Custom hook to use the animation context
 export const useAnimation = () => useContext(AnimationContext);
 
-// Provider component
 export const AnimationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [currentVideo, setCurrentVideo] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [sceneId, setSceneId] = useState<string | null>(null);
+  const [videoId, setVideoId] = useState<string | null>(null);
+  const [scenes, setScenes] = useState<Scene[]>([]);
+  const [currentSceneIndex, setCurrentSceneIndex] = useState(0);
+
+  const createNewVideo = async (name: string) => {
+    try {
+      const response = await launchVideo(name);
+      setVideoId(response.newVideo._id);
+      setScenes([]);
+      setMessages([]);
+      setCurrentVideo(null);
+    } catch (error) {
+      console.error('Error creating video:', error);
+    }
+  };
+
+  const addNewScene = async () => {
+    if (!videoId) return;
+    
+    setMessages([]);
+    setCurrentVideo(null);
+    const newIndex = scenes.length;
+    setCurrentSceneIndex(newIndex);
+  };
 
   const sendMessage = async (content: string): Promise<void> => {
+    if (!videoId) return;
+
     const userMessage: Message = {
       id: crypto.randomUUID(),
       content,
@@ -43,58 +79,50 @@ export const AnimationProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       timestamp: new Date(),
     };
 
-    const currentMessages = [...messages, userMessage];
-    setMessages(currentMessages);
+    setMessages((prev) => [...prev, userMessage]);
     setIsLoading(true);
 
     try {
-      let aiResponse: Message;
-      let video;
+      let response;
+      const currentScene = scenes[currentSceneIndex];
 
-
-      if (!sceneId) {
-        // First message – generate a new scene
-        video = await generateScene(userMessage.content);
-
-        console.log("video", video)
-
-        let recentChat = video.newScene.chatHistory[video.newScene.chatHistory.length - 1]
-
-        console.log(video)
-        aiResponse = {
-          id: crypto.randomUUID(),
-          content: recentChat.assistant,
-          sender: 'ai',
-          timestamp: new Date(),
+      if (!currentScene) {
+        response = await generateScene(videoId, content);
+        const newScene: Scene = {
+          order: scenes.length + 1,
+          sceneId: response.newScene._id,
+          fileUrl: response.fileUrl,
         };
-        setSceneId(video.newScene._id);
+        setScenes((prev) => [...prev, newScene]);
       } else {
-        // Regenerate an existing scene
-        video = await regenerateScene(sceneId, userMessage.content);
-
-        console.log("video", video)
-        
-        let recentChat = video.foundScene.chatHistory[video.foundScene.chatHistory.length - 1]
-        aiResponse = {
-          id: crypto.randomUUID(),
-          content: recentChat.assistant,
-          sender: 'ai',
-          timestamp: new Date(),
+        response = await regenerateScene(currentScene.sceneId, videoId, content);
+        const updatedScenes = [...scenes];
+        updatedScenes[currentSceneIndex] = {
+          ...currentScene,
+          fileUrl: response.fileUrl,
         };
+        setScenes(updatedScenes);
       }
 
-      setMessages((prev) => [...prev, aiResponse]);
-      setCurrentVideo(video.fileUrl);
-    } catch (error: any) {
-      console.error('Error generating animation:', error);
-
-      const errorMessage: Message = {
+      const aiResponse: Message = {
         id: crypto.randomUUID(),
-        content: `Oops! Something went wrong. ${error?.message || 'Please try again later.'}`,
+        content: currentScene 
+          ? response.foundScene.chatHistory[response.foundScene.chatHistory.length - 1].assistant
+          : response.newScene.chatHistory[response.newScene.chatHistory.length - 1].assistant,
         sender: 'ai',
         timestamp: new Date(),
       };
 
+      setMessages((prev) => [...prev, aiResponse]);
+      setCurrentVideo(response.fileUrl);
+    } catch (error: any) {
+      console.error('Error:', error);
+      const errorMessage: Message = {
+        id: crypto.randomUUID(),
+        content: `Error: ${error?.message || 'Something went wrong'}`,
+        sender: 'ai',
+        timestamp: new Date(),
+      };
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
@@ -105,7 +133,12 @@ export const AnimationProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     messages,
     currentVideo,
     isLoading,
+    videoId,
+    scenes,
+    currentSceneIndex,
     sendMessage,
+    createNewVideo,
+    addNewScene,
   };
 
   return (
