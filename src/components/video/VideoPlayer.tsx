@@ -9,11 +9,14 @@ const VideoPlayer: React.FC = () => {
     scenes, 
     currentSceneIndex,
     addNewScene,
-    videoId 
+    videoId,
+    setCurrentSceneIndex,
+    exportFullVideo
   } = useAnimation();
   const [isPlaying, setIsPlaying] = React.useState(false);
   const [currentTime, setCurrentTime] = React.useState(0);
   const [duration, setDuration] = React.useState(0);
+  const [isExporting, setIsExporting] = React.useState(false);
   const videoRef = React.useRef<HTMLVideoElement>(null);
 
   const handlePlayPause = () => {
@@ -65,14 +68,22 @@ const VideoPlayer: React.FC = () => {
     return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
   };
 
-  const handleDownload = () => {
-    if (!currentVideo) return;
-    const link = document.createElement('a');
-    link.href = currentVideo;
-    link.setAttribute('download', 'manim-animation.mp4');
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const handleDownload = async () => {
+    if (!videoId) return;
+    try {
+      setIsExporting(true);
+      const videoUrl = await exportFullVideo();
+      const link = document.createElement('a');
+      link.href = videoUrl;
+      link.setAttribute('download', 'manim-animation.mp4');
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Error exporting video:', error);
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   return (
@@ -93,10 +104,12 @@ const VideoPlayer: React.FC = () => {
           )}
           <button 
             onClick={handleDownload}
-            className='px-4 py-2 text-white font-bold bg-blue-600 hover:bg-blue-700 rounded-md transition-colors'
-            disabled={!currentVideo}
+            disabled={!videoId || isExporting}
+            className={`px-4 py-2 text-white font-bold rounded-md transition-colors ${
+              isExporting || !videoId ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
+            }`}
           >
-            Export
+            {isExporting ? 'Exporting...' : 'Export'}
           </button>
         </div>
       </div>
@@ -174,6 +187,7 @@ const VideoPlayer: React.FC = () => {
                 {scenes.map((scene, index) => (
                   <div
                     key={scene.sceneId}
+                    onClick={() => setCurrentSceneIndex(index)}
                     className={`aspect-video rounded-lg overflow-hidden cursor-pointer border-2 ${
                       index === currentSceneIndex
                         ? 'border-purple-500'

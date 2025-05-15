@@ -51,3 +51,13 @@ export const regenerateScene = async (sceneId, videoId, userPrompt) => {
         throw error;
     }
 }
+
+export const produceVideo = async (videoId) => {
+    try {
+        const response = await axios.get(`${BASE_URL}/video/produce/${videoId}`);
+        return response.data;
+    } catch (error) {
+        console.error("Error producing video:", error);
+        throw error;
+    }
+}
